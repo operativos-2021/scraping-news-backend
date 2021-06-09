@@ -19,6 +19,15 @@ pages = {
 actual_path = os.path.dirname(os.path.abspath(__file__))
 scrape_result_path = actual_path + "/scrape_result.json"
 
+def removeUnicode(text):
+    with open("unicode.json") as f:
+        codes = json.load(f)
+        unicodes = list(codes.keys())
+
+        for u in unicodes:
+            text = text.replace(u, codes[u])
+
+    return text
 
 def scrapSemanario(page, r):
     soup = BeautifulSoup(r.text, 'html.parser')
@@ -42,8 +51,8 @@ def scrapSemanario(page, r):
         img = article_soup.find('img', class_='wp-post-image')
         
         data_content = {}
-        data_content["headline"] = header.h1.text
-        data_content["article"] = content.text
+        data_content["headline"] = removeUnicode(header.h1.text)
+        data_content["article"] = removeUnicode(content.text)
         data_content["time"] = time.text.strip()
         data_content["img"] = img["data-lazy-src"]
 
@@ -73,8 +82,8 @@ def scrapAmelia(page, r):
         img = soup.find_all('img', class_='ar-list-entry__img')[i]
 
         data_content = {}
-        data_content["headline"] = header.text
-        data_content["article"] = content.text
+        data_content["headline"] = removeUnicode(header.text)
+        data_content["article"] = removeUnicode(content.text)
         data_content["time"] = time.text.strip()
         data_content["img"] = img["src"].strip()
 
@@ -91,8 +100,9 @@ def replaceGarbageMundo(text):
     garbage = splitted[-1]
 
     replaced = text.replace(garbage, '')
+    article = removeUnicode(replaced.strip())
 
-    return replaced.strip(), time
+    return article, time
 
 def scrapMundo(page, r):
     soup = BeautifulSoup(r.text, 'html.parser')
@@ -114,10 +124,16 @@ def scrapMundo(page, r):
         content = article_soup.find('div', class_='entry-content')
         img = article_soup.find('img', class_='size-full')
 
+        img_res = requests.get(img['data-permalink'], headers=headers)
+        image_soup = BeautifulSoup(img_res.text, 'html.parser')
+
+        img = image_soup.find('img', class_='attachment-medium')
+
         data_content = {}
-        data_content["headline"] = header.text
+        data_content["headline"] = removeUnicode(header.text)
         data_content["article"], data_content["time"] = replaceGarbageMundo(content.text[212:])
-        data_content["img"] = img["data-permalink"]
+        if img:
+            data_content["img"] = 'https://www.elmundo.cr' + img["src"]
 
         data[page].append(data_content)
 
@@ -126,8 +142,10 @@ def replaceGarbageSinart(text):
 
     garbage = splitted[-1]
     replaced = text.replace(garbage, '')
+    article = removeUnicode(replaced.strip())
 
-    return replaced.strip()
+    return article
+
 
 def scrapSinart(page, r):
     soup = BeautifulSoup(r.text, 'html.parser')
@@ -151,12 +169,14 @@ def scrapSinart(page, r):
         img = article_soup.find('img', class_='entry-thumb')
 
         data_content = {}
-        data_content["headline"] = header.text
+        data_content["headline"] = removeUnicode(header.text)
         data_content["article"] = replaceGarbageSinart(content.text) 
         data_content["time"] = time.text
         data_content["img"] = img["src"]
 
-        data[page].append(data_content)
+        year = data_content["time"].split(',')[1]
+        if year == ' 2021':
+            data[page].append(data_content)
 
 
 def doScraping():
